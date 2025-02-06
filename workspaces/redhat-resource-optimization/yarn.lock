@@ -2790,7 +2790,7 @@ __metadata:
     "@backstage/plugin-permission-common": ^0.8.3
     "@backstage/plugin-permission-node": ^0.8.6
     "@backstage/plugin-proxy-backend": ^0.5.9
-    "@types/express": "*"
+    "@types/express": 4.17.21
     "@types/supertest": ^6.0.0
     express: ^4.17.1
     express-promise-router: ^4.1.0
@@ -14959,7 +14959,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/express@npm:^4.17.21, @types/express@npm:^4.17.6":
+"@types/express@npm:4.17.21, @types/express@npm:^4.17.21, @types/express@npm:^4.17.6":
   version: 4.17.21
   resolution: "@types/express@npm:4.17.21"
   dependencies:
