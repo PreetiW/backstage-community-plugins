@@ -18,6 +18,7 @@ import type {
   RootConfigService,
   HttpAuthService,
   PermissionsService,
+  DiscoveryService,
 } from '@backstage/backend-plugin-api';
 
 /** @public */
@@ -26,4 +27,5 @@ export interface RouterOptions {
   config?: RootConfigService;
   httpAuth: HttpAuthService;
   permissions: PermissionsService;
+  discovery: DiscoveryService;
 }

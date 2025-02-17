@@ -17,10 +17,26 @@ import type { RequestHandler } from 'express';
 import type { RouterOptions } from '../models/RouterOptions';
 import { authorize } from '../service/router';
 import { rosPluginPermissions } from '@backstage-community/plugin-redhat-resource-optimization-common/permissions';
+import { OptimizationsClient } from '@backstage-community/plugin-redhat-resource-optimization-common/clients';
 
 export const getAccess: (options: RouterOptions) => RequestHandler =
   options => async (_, response) => {
     const { logger, permissions, httpAuth } = options;
+
+    console.log('Bearer Token', _.headers.authorization);
+
+    const optimizationClientReference = new OptimizationsClient({
+      discoveryApi: options.discovery,
+    });
+    const optimizationResponse =
+      await optimizationClientReference.getRecommendationListData({
+        query: {
+          limit: 1000,
+          offset: 0,
+        },
+      });
+
+    console.log('Preeti Router API response', optimizationResponse.json());
 
     const decision = await authorize(
       _,

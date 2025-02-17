@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
 import { deepMapKeys } from '@y0n1/json-utils';
 import crossFetch from 'cross-fetch';
 import camelCase from 'lodash/camelCase';
@@ -37,6 +36,8 @@ import type {
 } from './types';
 import { UnauthorizedError } from '@backstage-community/plugin-rbac-common';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { DiscoveryApi } from '../../generated/types/discovery';
+import { FetchApi } from '../../generated/types/fetch';
 
 type DefaultApiClientOpFunc<
   TRequest = GetRecommendationByIdRequest | GetRecommendationListRequest,
@@ -138,6 +139,33 @@ export class OptimizationsClient implements OptimizationsApi {
     };
   }
 
+  public async getRecommendationListData(
+    request: GetRecommendationListRequest,
+  ): Promise<TypedResponse<RecommendationList>> {
+    const snakeCaseTransformedRequest = deepMapKeys(
+      request,
+      snakeCase as (value: string | number) => string,
+    ) as GetRecommendationListRequest;
+
+    const response = await this.fetchWithToken(
+      this.defaultClient.getRecommendationList,
+      snakeCaseTransformedRequest,
+      false,
+    );
+
+    return {
+      ...response,
+      json: async () => {
+        const data = await response.json();
+        const camelCaseTransformedResponse = deepMapKeys(
+          data,
+          camelCase as (value: string | number) => string,
+        ) as RecommendationList;
+        return camelCaseTransformedResponse;
+      },
+    };
+  }
+
   private async getAccess(): Promise<GetAccessResponse> {
     const baseUrl = await this.discoveryApi.getBaseUrl(`${pluginId}`);
     const response = await this.fetchApi.fetch(`${baseUrl}/access`);
@@ -158,12 +186,14 @@ export class OptimizationsClient implements OptimizationsApi {
   >(
     asyncOp: DefaultApiClientOpFunc<TRequest, TResponse>,
     request: TRequest,
+    hitAccess: boolean = true,
   ): Promise<TypedResponse<TResponse>> {
-    const accessAPIResponse = await this.getAccess();
-
-    if (accessAPIResponse.decision === AuthorizeResult.DENY) {
-      const error = new UnauthorizedError();
-      throw error;
+    if (hitAccess) {
+      const accessAPIResponse = await this.getAccess();
+      if (accessAPIResponse.decision === AuthorizeResult.DENY) {
+        const error = new UnauthorizedError();
+        throw error;
+      }
     }
 
     if (!this.token) {
