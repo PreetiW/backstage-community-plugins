@@ -16,48 +16,9 @@
 import express from 'express';
 import Router from 'express-promise-router';
 import type { RouterOptions } from '../models/RouterOptions';
-import { getToken } from '../routes/token';
 import { createPermissionIntegrationRouter } from '@backstage/plugin-permission-node';
 import { rosPluginPermissions } from '@backstage-community/plugin-redhat-resource-optimization-common/permissions';
-import { Request as HttpRequest } from 'express-serve-static-core';
-import {
-  AuthorizePermissionResponse,
-  AuthorizeResult,
-  BasicPermission,
-} from '@backstage/plugin-permission-common';
-import {
-  PermissionsService,
-  HttpAuthService,
-} from '@backstage/backend-plugin-api';
-import { getAccess } from '../routes/access';
-
-export const authorize = async (
-  request: HttpRequest,
-  anyOfPermissions: BasicPermission[],
-  permissionsSvc: PermissionsService,
-  httpAuth: HttpAuthService,
-): Promise<AuthorizePermissionResponse> => {
-  const credentials = await httpAuth.credentials(request);
-
-  const decisionResponses: AuthorizePermissionResponse[][] = await Promise.all(
-    anyOfPermissions.map(permission =>
-      permissionsSvc.authorize([{ permission }], {
-        credentials,
-      }),
-    ),
-  );
-
-  const decisions: AuthorizePermissionResponse[] = decisionResponses.map(
-    d => d[0],
-  );
-
-  const allow = decisions.find(d => d.result === AuthorizeResult.ALLOW);
-  return (
-    allow || {
-      result: AuthorizeResult.DENY,
-    }
-  );
-};
+import { getRecommendationList } from '../routes/recommendations';
 
 /** @public */
 export async function createRouter(
@@ -72,11 +33,10 @@ export async function createRouter(
   router.use(permissionsIntegrationRouter);
 
   router.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok from ros backend plugin' });
   });
-  router.get('/token', getToken(options));
 
-  router.get('/access', getAccess(options));
+  router.get('/recommendations/openshift', getRecommendationList(options));
 
   return router;
 }

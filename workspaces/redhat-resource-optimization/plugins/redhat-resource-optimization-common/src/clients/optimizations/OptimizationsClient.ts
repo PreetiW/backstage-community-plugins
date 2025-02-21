@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { deepMapKeys } from '@y0n1/json-utils';
+
 import crossFetch from 'cross-fetch';
 import camelCase from 'lodash/camelCase';
 import snakeCase from 'lodash/snakeCase';
@@ -38,15 +38,8 @@ import { UnauthorizedError } from '@backstage-community/plugin-rbac-common';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { DiscoveryApi } from '../../generated/types/discovery';
 import { FetchApi } from '../../generated/types/fetch';
-
-type DefaultApiClientOpFunc<
-  TRequest = GetRecommendationByIdRequest | GetRecommendationListRequest,
-  TResponse = RecommendationBoxPlots | RecommendationList,
-> = (
-  this: DefaultApiClient,
-  request: TRequest,
-  options?: RequestOptions,
-) => Promise<TypedResponse<TResponse>>;
+import { deepMapKeys } from '../../util/mod';
+import * as parser from 'uri-template';
 
 /**
  * This class is a proxy for the original Optimizations client.
@@ -69,19 +62,8 @@ export class OptimizationsClient implements OptimizationsApi {
 
   private readonly discoveryApi: DiscoveryApi;
   private readonly fetchApi: FetchApi;
-  private readonly defaultClient: DefaultApiClient;
-  private token?: string;
 
   constructor(options: { discoveryApi: DiscoveryApi; fetchApi?: FetchApi }) {
-    this.defaultClient = new DefaultApiClient({
-      fetchApi: options.fetchApi,
-      discoveryApi: {
-        async getBaseUrl() {
-          const baseUrl = await options.discoveryApi.getBaseUrl('proxy');
-          return `${baseUrl}/cost-management/v1`;
-        },
-      },
-    });
     this.discoveryApi = options.discoveryApi;
     this.fetchApi = options.fetchApi ?? { fetch: crossFetch };
   }
@@ -116,114 +98,48 @@ export class OptimizationsClient implements OptimizationsApi {
   public async getRecommendationList(
     request: GetRecommendationListRequest,
   ): Promise<TypedResponse<RecommendationList>> {
+    // move the snakeCaseTransformedRequest part to backend
+    // backend will be responsible for managing both
+    // frontend and backend will communicate in camelcase
     const snakeCaseTransformedRequest = deepMapKeys(
       request,
       snakeCase as (value: string | number) => string,
     ) as GetRecommendationListRequest;
 
-    const response = await this.fetchWithToken(
-      this.defaultClient.getRecommendationList,
-      snakeCaseTransformedRequest,
-    );
-
-    return {
-      ...response,
-      json: async () => {
-        const data = await response.json();
-        const camelCaseTransformedResponse = deepMapKeys(
-          data,
-          camelCase as (value: string | number) => string,
-        ) as RecommendationList;
-        return camelCaseTransformedResponse;
-      },
-    };
-  }
-
-  public async getRecommendationListData(
-    request: GetRecommendationListRequest,
-  ): Promise<TypedResponse<RecommendationList>> {
-    const snakeCaseTransformedRequest = deepMapKeys(
-      request,
-      snakeCase as (value: string | number) => string,
-    ) as GetRecommendationListRequest;
-
-    const response = await this.fetchWithToken(
-      this.defaultClient.getRecommendationList,
-      snakeCaseTransformedRequest,
-      false,
-    );
-
-    return {
-      ...response,
-      json: async () => {
-        const data = await response.json();
-        const camelCaseTransformedResponse = deepMapKeys(
-          data,
-          camelCase as (value: string | number) => string,
-        ) as RecommendationList;
-        return camelCaseTransformedResponse;
-      },
-    };
-  }
-
-  private async getAccess(): Promise<GetAccessResponse> {
     const baseUrl = await this.discoveryApi.getBaseUrl(`${pluginId}`);
-    const response = await this.fetchApi.fetch(`${baseUrl}/access`);
-    const data = (await response.json()) as GetAccessResponse;
-    return data;
-  }
+    const uriTemplate = `${baseUrl}/recommendations/openshift{?cluster*,workload_type*,workload*,container*,project*,start_date,end_date,offset,limit,order_by,order_how}`;
 
-  private async getNewToken(): Promise<GetTokenResponse> {
-    const baseUrl = await this.discoveryApi.getBaseUrl(`${pluginId}`);
-    const response = await this.fetchApi.fetch(`${baseUrl}/token`);
-    const data = (await response.json()) as GetTokenResponse;
-    return data;
-  }
-
-  private async fetchWithToken<
-    TRequest = GetRecommendationByIdRequest | GetRecommendationListRequest,
-    TResponse = RecommendationBoxPlots | RecommendationList,
-  >(
-    asyncOp: DefaultApiClientOpFunc<TRequest, TResponse>,
-    request: TRequest,
-    hitAccess: boolean = true,
-  ): Promise<TypedResponse<TResponse>> {
-    if (hitAccess) {
-      const accessAPIResponse = await this.getAccess();
-      if (accessAPIResponse.decision === AuthorizeResult.DENY) {
-        const error = new UnauthorizedError();
-        throw error;
-      }
-    }
-
-    if (!this.token) {
-      const { accessToken } = await this.getNewToken();
-      this.token = accessToken;
-    }
-
-    let response = await asyncOp.call(this.defaultClient, request, {
-      token: this.token,
+    const recommendationUri = parser.parse(uriTemplate).expand({
+      ...snakeCaseTransformedRequest.query,
     });
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        const { accessToken } = await this.getNewToken();
-        this.token = accessToken;
+    const response = await this.fetchApi.fetch(`${recommendationUri}`);
 
-        response = await asyncOp.call(this.defaultClient, request, {
-          token: this.token,
-        });
-      } else {
-        throw new Error(response.statusText);
-      }
-    }
-
+    // move the camelcaseTransform part to backend
     return {
       ...response,
       json: async () => {
-        const data = (await response.json()) as TResponse;
-        return data;
+        const data = await response.json();
+        const camelCaseTransformedResponse = deepMapKeys(
+          data,
+          camelCase as (value: string | number) => string,
+        ) as RecommendationList;
+        return camelCaseTransformedResponse;
       },
     };
   }
+
+  // private async getAccess(): Promise<GetAccessResponse> {
+  //   const baseUrl = await this.discoveryApi.getBaseUrl(`${pluginId}`);
+  //   const response = await this.fetchApi.fetch(`${baseUrl}/access`);
+  //   const data = (await response.json()) as GetAccessResponse;
+  //   return data;
+  // }
+
+  // public async getNewToken(): Promise<GetTokenResponse> {
+  //   const baseUrl = await this.discoveryApi.getBaseUrl(`${pluginId}`);
+  //   const response = await this.fetchApi.fetch(`${baseUrl}/token`);
+  //   const data = (await response.json()) as GetTokenResponse;
+  //   return data;
+  // }
 }

@@ -18,6 +18,7 @@ import {
   createBackendPlugin,
 } from '@backstage/backend-plugin-api';
 import { createRouter } from './service/router';
+import { optimizationServiceRef } from './service/optimizationsService';
 
 /**
  * resourceOptimizationPlugin backend plugin
@@ -34,7 +35,7 @@ export const resourceOptimizationPlugin = createBackendPlugin({
         config: coreServices.rootConfig,
         httpAuth: coreServices.httpAuth,
         permissions: coreServices.permissions,
-        discovery: coreServices.discovery,
+        optimizationApi: optimizationServiceRef,
       },
       async init({
         httpRouter,
@@ -42,14 +43,14 @@ export const resourceOptimizationPlugin = createBackendPlugin({
         config,
         httpAuth,
         permissions,
-        discovery,
+        optimizationApi,
       }) {
         const router = await createRouter({
           logger,
           config,
           httpAuth,
           permissions,
-          discovery,
+          optimizationApi,
         });
         // @ts-ignore
         httpRouter.use(router);
@@ -58,7 +59,7 @@ export const resourceOptimizationPlugin = createBackendPlugin({
           allow: 'unauthenticated',
         });
         httpRouter.addAuthPolicy({
-          path: '/token',
+          path: '/recommendations/openshift',
           allow: 'user-cookie',
         });
       },

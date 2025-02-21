@@ -138,8 +138,9 @@ export class DefaultApiClient {
     },
     options?: RequestOptions,
   ): Promise<TypedResponse<RecommendationList>> {
-    const baseUrl = await this.discoveryApi.getBaseUrl(pluginId);
-
+    // revert this back, it is generated code so we cant change it
+    // const baseUrl = await this.discoveryApi.getBaseUrl(pluginId);
+    const baseUrl = 'BASE_URL';
     const uriTemplate = `/recommendations/openshift{?cluster*,workload_type*,workload*,container*,project*,start_date,end_date,offset,limit,order_by,order_how}`;
 
     const uri = parser.parse(uriTemplate).expand({

@@ -22,6 +22,13 @@ export interface Config {
      */
     ssoBaseUrl?: string;
 
+    /**
+     * @default "https://console.redhat.com/api/cost-management/v1"
+     *
+     * @visibility backend
+     */
+    optimizationsBaseUrl?: string;
+
     /** @visibility backend */
     clientId: string;
 
