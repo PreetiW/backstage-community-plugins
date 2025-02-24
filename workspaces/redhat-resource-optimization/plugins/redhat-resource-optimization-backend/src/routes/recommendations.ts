@@ -15,6 +15,7 @@
  */
 import type { RequestHandler } from 'express';
 import type { RouterOptions } from '../models/RouterOptions';
+import { getTokenFromApi } from '../util/tokenUtil';
 
 export const getRecommendationList: (
   options: RouterOptions,
@@ -23,16 +24,19 @@ export const getRecommendationList: (
 
   logger.info('getRecommendationList');
   // permission
-  // token
 
+  // token
+  const token = await getTokenFromApi(options);
   // convert to snakecase
   // const optimizationResponse = await optimizationApi.getRecommendationList({query: _.query}, { token: /*...*/ });
-  const optimizationResponse = await optimizationApi.getRecommendationList({
-    query: _.query,
-  });
+  const optimizationResponse = await optimizationApi.getRecommendationList(
+    { query: _.query },
+    { token },
+  );
 
   if (optimizationResponse.ok) {
     const responseBody = await optimizationResponse.json();
+    // console.log("Optimization Response:", response.json(responseBody));
     // tranform response and send back
     response.json(responseBody);
   } else {
